@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { EpisodeModal } from "./episode-modal";
+import Spinner from "./ui/spinner";
 
 interface Character {
   id: number;
@@ -23,7 +24,7 @@ interface Episode {
 export default function CharacterList() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [filteredCharacters, setFilteredCharacters] = useState<Character[]>([]);
-  const [page, setPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(
     null
@@ -35,34 +36,69 @@ export default function CharacterList() {
   const [typeFilter, setTypeFilter] = useState("");
   const [genderFilter, setGenderFilter] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [totalPages, setTotalPages] = useState(0);
+
+  const itemsPerPage = 8;
 
   useEffect(() => {
-    fetchCharacters();
-  }, [page, nameFilter, statusFilter, speciesFilter, typeFilter, genderFilter]);
+    fetchAllCharacters();
+  }, [statusFilter, speciesFilter, typeFilter, genderFilter]);
 
-  const fetchCharacters = async () => {
+  useEffect(() => {
+    handleFilterCharacters();
+  }, [nameFilter, characters]);
+
+  const fetchAllCharacters = async () => {
     setLoading(true);
-    try {
-      const queryParams = new URLSearchParams({
-        page: page.toString(),
-        ...(nameFilter && { name: nameFilter }),
-        ...(statusFilter && { status: statusFilter }),
-        ...(speciesFilter && { species: speciesFilter }),
-        ...(typeFilter && { type: typeFilter }),
-        ...(genderFilter && { gender: genderFilter }),
-      });
+    let allCharacters: Character[] = [];
+    let nextPage = 1;
 
-      const response = await fetch(
-        `https://rickandmortyapi.com/api/character?${queryParams.toString()}`
-      );
-      const data = await response.json();
-      setCharacters(data.results);
-      setTotalPages(data.info.pages);
+    try {
+      while (nextPage) {
+        const queryParams = new URLSearchParams({
+          page: nextPage.toString(),
+          ...(statusFilter && { status: statusFilter }),
+          ...(speciesFilter && { species: speciesFilter }),
+          ...(typeFilter && { type: typeFilter }),
+          ...(genderFilter && { gender: genderFilter }),
+        });
+
+        const response = await fetch(
+          `https://rickandmortyapi.com/api/character?${queryParams.toString()}`
+        );
+        const data = await response.json();
+
+        if (data.results) {
+          allCharacters = [...allCharacters, ...data.results];
+        }
+
+        nextPage = data.info?.next ? nextPage + 1 : 0;
+      }
+
+      setCharacters(allCharacters);
+      setFilteredCharacters(allCharacters);
     } catch (error) {
       console.error("Error fetching characters:", error);
+      setCharacters([]);
+      setFilteredCharacters([]);
     }
     setLoading(false);
+  };
+
+  const handleFilterCharacters = () => {
+    if (!nameFilter.trim()) {
+      setFilteredCharacters(characters);
+      setCurrentPage(1);
+      return;
+    }
+
+    const searchTerms = nameFilter.toLowerCase().split(" ");
+    const filtered = characters.filter((character) => {
+      const characterName = character.name.toLowerCase();
+      return searchTerms.every((term) => characterName.includes(term));
+    });
+
+    setFilteredCharacters(filtered);
+    setCurrentPage(1);
   };
 
   const fetchEpisodes = async (character: Character) => {
@@ -78,6 +114,12 @@ export default function CharacterList() {
       console.error("Error fetching episodes:", error);
     }
   };
+
+  const totalPages = Math.ceil(filteredCharacters.length / itemsPerPage);
+  const displayedCharacters = filteredCharacters.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <section className="bg-gray-800 p-4 rounded-lg shadow-lg">
@@ -109,11 +151,14 @@ export default function CharacterList() {
         />
       </div>
       {loading ? (
-        <p className="text-center">Loading characters...</p>
-      ) : (
+        <div className="flex justify-center space-x-2 items-center h-full">
+          <Spinner />
+          <p className="text-center">Loading characters...</p>
+        </div>
+      ) : displayedCharacters.length > 0 ? (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {characters.map((character) => (
+            {displayedCharacters.map((character) => (
               <div
                 key={character.id}
                 className="bg-gray-700 p-2 rounded-lg cursor-pointer hover:bg-gray-600 transition-colors"
@@ -133,23 +178,30 @@ export default function CharacterList() {
               </div>
             ))}
           </div>
-          <div className="mt-4 flex justify-between">
+          <div className="mt-4 flex justify-between items-center">
             <button
-              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              disabled={page === 1}
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
               className="bg-green-500 px-4 py-2 rounded-lg disabled:opacity-50"
             >
               Previous
             </button>
+            <span className="text-white">
+              Page {currentPage} of {totalPages}
+            </span>
             <button
-              onClick={() => setPage((prev) => prev + 1)}
-              disabled={page === totalPages}
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
+              disabled={currentPage === totalPages}
               className="bg-green-500 px-4 py-2 rounded-lg disabled:opacity-50"
             >
               Next
             </button>
           </div>
         </>
+      ) : (
+        <p className="text-center">No characters found</p>
       )}
       {selectedCharacter && (
         <EpisodeModal

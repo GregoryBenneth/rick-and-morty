@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Spinner from "./ui/spinner";
 
 interface Location {
   id: number;
@@ -11,38 +12,85 @@ interface Location {
 
 export default function LocationList() {
   const [locations, setLocations] = useState<Location[]>([]);
-  const [page, setPage] = useState(1);
+  const [filteredLocations, setFilteredLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
   const [nameFilter, setNameFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [dimensionFilter, setDimensionFilter] = useState("");
-  const [totalPages, setTotalPages] = useState(0);
+
+  const itemsPerPage = 8; // Máximo de locais por página
 
   useEffect(() => {
-    fetchLocations();
-  }, [page, nameFilter, typeFilter, dimensionFilter]);
+    fetchAllLocations();
+  }, []);
 
-  const fetchLocations = async () => {
+  useEffect(() => {
+    handleFilterLocations();
+  }, [nameFilter, typeFilter, dimensionFilter, locations]);
+
+  const fetchAllLocations = async () => {
     setLoading(true);
-    try {
-      const queryParams = new URLSearchParams({
-        page: page.toString(),
-        ...(nameFilter && { name: nameFilter }),
-        ...(typeFilter && { type: typeFilter }),
-        ...(dimensionFilter && { dimension: dimensionFilter }),
-      });
+    let allLocations: Location[] = [];
+    let nextPage = 1;
 
-      const response = await fetch(
-        `https://rickandmortyapi.com/api/location?${queryParams.toString()}`
-      );
-      const data = await response.json();
-      setLocations(data.results);
-      setTotalPages(data.info.pages);
+    try {
+      while (nextPage) {
+        const response = await fetch(
+          `https://rickandmortyapi.com/api/location?page=${nextPage}`
+        );
+        const data = await response.json();
+
+        if (data.results) {
+          allLocations = [...allLocations, ...data.results];
+        }
+
+        nextPage = data.info?.next ? nextPage + 1 : 0; // Verifica se há próxima página
+      }
+
+      setLocations(allLocations);
+      setFilteredLocations(allLocations); // Inicializa com todos os locais
     } catch (error) {
       console.error("Error fetching locations:", error);
+      setLocations([]);
+      setFilteredLocations([]);
     }
     setLoading(false);
   };
+
+  const handleFilterLocations = () => {
+    if (!nameFilter && !typeFilter && !dimensionFilter) {
+      setFilteredLocations(locations); // Sem filtros, exibe todos os locais
+      setCurrentPage(1); // Reinicia para a primeira página
+      return;
+    }
+
+    const filtered = locations.filter((location) => {
+      const matchesName = nameFilter
+        ? location.name.toLowerCase().includes(nameFilter.toLowerCase())
+        : true;
+      const matchesType = typeFilter
+        ? location.type.toLowerCase().includes(typeFilter.toLowerCase())
+        : true;
+      const matchesDimension = dimensionFilter
+        ? location.dimension
+            .toLowerCase()
+            .includes(dimensionFilter.toLowerCase())
+        : true;
+
+      return matchesName && matchesType && matchesDimension;
+    });
+
+    setFilteredLocations(filtered);
+    setCurrentPage(1); // Reinicia para a primeira página
+  };
+
+  // Cálculo dos itens para exibir na página atual
+  const totalPages = Math.ceil(filteredLocations.length / itemsPerPage);
+  const displayedLocations = filteredLocations.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <section className="bg-gray-800 p-4 rounded-lg shadow-lg">
@@ -71,41 +119,48 @@ export default function LocationList() {
         />
       </div>
       {loading ? (
-        <p className="text-center">Loading locations...</p>
-      ) : (
+        <div className="flex justify-center space-x-2 items-center h-full">
+          <Spinner />
+          <p className="text-center">Loading locations...</p>
+        </div>
+      ) : // Exibe o spinner enquanto os dados estão sendo carregados
+      displayedLocations.length > 0 ? (
         <>
           <div className="grid gap-4">
-            {!locations ? (
-              <div>Location dont founded</div>
-            ) : (
-              locations.map((location) => (
-                <div key={location.id} className="bg-gray-700 p-4 rounded-lg">
-                  <h3 className="font-semibold text-lg">{location.name}</h3>
-                  <p className="text-sm text-gray-300">Type: {location.type}</p>
-                  <p className="text-sm text-gray-300">
-                    Dimension: {location.dimension}
-                  </p>
-                </div>
-              ))
-            )}
+            {displayedLocations.map((location) => (
+              <div key={location.id} className="bg-gray-700 p-4 rounded-lg">
+                <h3 className="font-semibold text-lg">{location.name}</h3>
+                <p className="text-sm text-gray-300">Type: {location.type}</p>
+                <p className="text-sm text-gray-300">
+                  Dimension: {location.dimension}
+                </p>
+              </div>
+            ))}
           </div>
-          <div className="mt-4 flex justify-between">
+          <div className="mt-4 flex justify-between items-center">
             <button
-              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              disabled={page === 1}
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
               className="bg-green-500 px-4 py-2 rounded-lg disabled:opacity-50"
             >
               Previous
             </button>
+            <span className="text-white">
+              Page {currentPage} of {totalPages}
+            </span>
             <button
-              onClick={() => setPage((prev) => prev + 1)}
-              disabled={page === totalPages}
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
+              disabled={currentPage === totalPages}
               className="bg-green-500 px-4 py-2 rounded-lg disabled:opacity-50"
             >
               Next
             </button>
           </div>
         </>
+      ) : (
+        <p className="text-center text-white">No locations found</p>
       )}
     </section>
   );
