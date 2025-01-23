@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { EpisodeModal } from "./episode-modal";
 
 interface Character {
   id: number;
@@ -31,6 +32,7 @@ export default function CharacterList() {
   const [nameFilter, setNameFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchCharacters();
@@ -82,6 +84,7 @@ export default function CharacterList() {
       );
       const episodeData = await Promise.all(episodePromises);
       setEpisodes(episodeData);
+      setIsModalOpen(true);
     } catch (error) {
       console.error("Error fetching episodes:", error);
     }
@@ -159,19 +162,12 @@ export default function CharacterList() {
         </>
       )}
       {selectedCharacter && (
-        <div className="mt-8">
-          <h3 className="text-xl font-bold mb-2 text-green-400">
-            {selectedCharacter.name}'s Episodes
-          </h3>
-          <ul className="list-disc list-inside">
-            {episodes.map((episode) => (
-              <li key={episode.id} className="mb-2">
-                <span className="font-semibold">{episode.episode}:</span>{" "}
-                {episode.name} (Air Date: {episode.air_date})
-              </li>
-            ))}
-          </ul>
-        </div>
+        <EpisodeModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          episodes={episodes}
+          characterName={selectedCharacter.name}
+        />
       )}
     </section>
   );
