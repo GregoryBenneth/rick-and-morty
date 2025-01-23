@@ -32,48 +32,37 @@ export default function CharacterList() {
   const [nameFilter, setNameFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [speciesFilter, setSpeciesFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [genderFilter, setGenderFilter] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
     fetchCharacters();
-  }, [page]);
-
-  useEffect(() => {
-    filterCharacters();
-  }, [characters, nameFilter, statusFilter, speciesFilter]);
+  }, [page, nameFilter, statusFilter, speciesFilter, typeFilter, genderFilter]);
 
   const fetchCharacters = async () => {
     setLoading(true);
     try {
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        ...(nameFilter && { name: nameFilter }),
+        ...(statusFilter && { status: statusFilter }),
+        ...(speciesFilter && { species: speciesFilter }),
+        ...(typeFilter && { type: typeFilter }),
+        ...(genderFilter && { gender: genderFilter }),
+      });
+
       const response = await fetch(
-        `https://rickandmortyapi.com/api/character?page=${page}`
+        `https://rickandmortyapi.com/api/character?${queryParams.toString()}`
       );
       const data = await response.json();
       setCharacters(data.results);
+      setTotalPages(data.info.pages);
     } catch (error) {
       console.error("Error fetching characters:", error);
     }
     setLoading(false);
-  };
-
-  const filterCharacters = () => {
-    let filtered = characters;
-    if (nameFilter) {
-      filtered = filtered.filter((char) =>
-        char.name.toLowerCase().includes(nameFilter.toLowerCase())
-      );
-    }
-    if (statusFilter) {
-      filtered = filtered.filter(
-        (char) => char.status.toLowerCase() === statusFilter.toLowerCase()
-      );
-    }
-    if (speciesFilter) {
-      filtered = filtered.filter((char) =>
-        char.species.toLowerCase().includes(speciesFilter.toLowerCase())
-      );
-    }
-    setFilteredCharacters(filtered);
   };
 
   const fetchEpisodes = async (character: Character) => {
@@ -124,7 +113,7 @@ export default function CharacterList() {
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {filteredCharacters.map((character) => (
+            {characters.map((character) => (
               <div
                 key={character.id}
                 className="bg-gray-700 p-2 rounded-lg cursor-pointer hover:bg-gray-600 transition-colors"
@@ -154,7 +143,8 @@ export default function CharacterList() {
             </button>
             <button
               onClick={() => setPage((prev) => prev + 1)}
-              className="bg-green-500 px-4 py-2 rounded-lg"
+              disabled={page === totalPages}
+              className="bg-green-500 px-4 py-2 rounded-lg disabled:opacity-50"
             >
               Next
             </button>
