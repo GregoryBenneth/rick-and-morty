@@ -19,7 +19,7 @@ export default function LocationList() {
   const [typeFilter, setTypeFilter] = useState("");
   const [dimensionFilter, setDimensionFilter] = useState("");
 
-  const itemsPerPage = 8; // Máximo de locais por página
+  const itemsPerPage = 8; 
 
   useEffect(() => {
     fetchAllLocations();
@@ -45,11 +45,11 @@ export default function LocationList() {
           allLocations = [...allLocations, ...data.results];
         }
 
-        nextPage = data.info?.next ? nextPage + 1 : 0; // Verifica se há próxima página
+        nextPage = data.info?.next ? nextPage + 1 : 0; 
       }
 
       setLocations(allLocations);
-      setFilteredLocations(allLocations); // Inicializa com todos os locais
+      setFilteredLocations(allLocations); 
     } catch (error) {
       console.error("Error fetching locations:", error);
       setLocations([]);
@@ -60,8 +60,8 @@ export default function LocationList() {
 
   const handleFilterLocations = () => {
     if (!nameFilter && !typeFilter && !dimensionFilter) {
-      setFilteredLocations(locations); // Sem filtros, exibe todos os locais
-      setCurrentPage(1); // Reinicia para a primeira página
+      setFilteredLocations(locations); 
+      setCurrentPage(1); 
       return;
     }
 
@@ -82,10 +82,10 @@ export default function LocationList() {
     });
 
     setFilteredLocations(filtered);
-    setCurrentPage(1); // Reinicia para a primeira página
+    setCurrentPage(1); 
   };
 
-  // Cálculo dos itens para exibir na página atual
+  
   const totalPages = Math.ceil(filteredLocations.length / itemsPerPage);
   const displayedLocations = filteredLocations.slice(
     (currentPage - 1) * itemsPerPage,
@@ -123,7 +123,7 @@ export default function LocationList() {
           <Spinner />
           <p className="text-center">Loading locations...</p>
         </div>
-      ) : // Exibe o spinner enquanto os dados estão sendo carregados
+      ) : 
       displayedLocations.length > 0 ? (
         <>
           <div className="grid gap-4">
